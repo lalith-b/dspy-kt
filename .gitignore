@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+!important/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+target/
+
+# Kotlin metadata
+.kotlin/
+
+# OS
+.DS_Store
+*.swp
+*~
+
+# Eclipse
+.eggs/
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+*.pid

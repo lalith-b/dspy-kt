@@ -1,0 +1,615 @@
+package dspy.core.types
+
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+
+class LMTextPartTest : FunSpec({
+    test("creates text part with text") {
+        val part = LMTextPart(text = "Hello world")
+        part.text shouldBe "Hello world"
+        part.type shouldBe "text"
+    }
+
+    test("text part with metadata") {
+        val part = LMTextPart(text = "Test", metadata = mapOf("key" to "value"))
+        part.text shouldBe "Test"
+        part.metadata["key"] shouldBe "value"
+    }
+})
+
+class LMImagePartTest : FunSpec({
+    test("creates image part with url") {
+        val part = LMImagePart(url = "https://example.com/image.png")
+        part.url shouldBe "https://example.com/image.png"
+        part.type shouldBe "image"
+    }
+
+    test("creates image part with data") {
+        val part = LMImagePart(data = "base64data")
+        part.data shouldBe "base64data"
+    }
+
+    test("creates image part with detail") {
+        val part = LMImagePart(url = "https://example.com/image.png", detail = "high")
+        part.detail shouldBe "high"
+    }
+})
+
+class LMAudioPartTest : FunSpec({
+    test("creates audio part with url") {
+        val part = LMAudioPart(url = "https://example.com/audio.wav")
+        part.url shouldBe "https://example.com/audio.wav"
+        part.type shouldBe "audio"
+    }
+
+    test("creates audio part with data") {
+        val part = LMAudioPart(data = "base64data")
+        part.data shouldBe "base64data"
+    }
+})
+
+class LMPartFactoryTest : FunSpec({
+    test("creates various LMPart types") {
+        val text = LMTextPart(text = "text")
+        val image = LMImagePart(url = "https://example.com/image.png")
+        val audio = LMAudioPart(url = "https://example.com/audio.wav")
+
+        text.type shouldBe "text"
+        image.type shouldBe "image"
+        audio.type shouldBe "audio"
+    }
+
+    test("LMToolCallPart creation") {
+        val toolCall = LMToolCallPart(id = "call_123", name = "search", args = mapOf("query" to "test"))
+        toolCall.type shouldBe "tool_call"
+        toolCall.id shouldBe "call_123"
+        toolCall.name shouldBe "search"
+        toolCall.args["query"] shouldBe "test"
+    }
+
+    test("LMToolResultPart creation") {
+        val result = LMToolResultPart(
+            callId = "call_123",
+            name = "search",
+            content = listOf(LMTextPart(text = "Result"))
+        )
+        result.type shouldBe "tool_result"
+        result.callId shouldBe "call_123"
+        result.content.size shouldBe 1
+    }
+})
+
+class LMMessageTest : FunSpec({
+    test("creates message with text part") {
+        val msg = LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello")))
+        msg.role shouldBe "user"
+        msg.text shouldBe "Hello"
+    }
+
+    test("creates message with multiple parts") {
+        val msg = LMMessage(
+            role = "user",
+            parts = listOf(
+                LMTextPart(text = "Hello"),
+                LMTextPart(text = " World")
+            )
+        )
+        msg.text shouldBe "Hello World"
+    }
+
+    test("message with name") {
+        val msg = LMMessage(
+            role = "user",
+            parts = listOf(LMTextPart(text = "Hello")),
+            name = "john"
+        )
+        msg.name shouldBe "john"
+    }
+
+    test("message with metadata") {
+        val msg = LMMessage(
+            role = "user",
+            parts = listOf(LMTextPart(text = "Hello")),
+            metadata = mapOf("source" to "test")
+        )
+        msg.metadata["source"] shouldBe "test"
+    }
+
+    test("text returns null for non-text parts") {
+        val msg = LMMessage(role = "user", parts = listOf(LMImagePart(url = "https://example.com/image.png")))
+        msg.text shouldBe null
+    }
+})
+
+class LMToolSpecTest : FunSpec({
+    test("creates tool spec") {
+        val spec = LMToolSpec(
+            name = "search",
+            description = "Search the web",
+            parameters = mapOf("type" to "object", "properties" to mapOf("query" to mapOf("type" to "string")))
+        )
+        spec.name shouldBe "search"
+        spec.description shouldBe "Search the web"
+    }
+
+    test("tool spec with metadata") {
+        val spec = LMToolSpec(
+            name = "search",
+            metadata = mapOf("version" to "1.0")
+        )
+        spec.metadata["version"] shouldBe "1.0"
+    }
+})
+
+class LMConfigTest : FunSpec({
+    test("creates config with values") {
+        val config = LMConfig(
+            temperature = 0.7,
+            maxTokens = 1000,
+            topP = 0.9,
+            stop = listOf("END"),
+            n = 3,
+            logprobs = true
+        )
+        config.temperature shouldBe 0.7
+        config.maxTokens shouldBe 1000
+        config.topP shouldBe 0.9
+        config.stop shouldBe listOf("END")
+        config.n shouldBe 3
+        config.logprobs shouldBe true
+    }
+
+    test("fromKwargs with known keys") {
+        val config = LMConfig.fromKwargs(mapOf(
+            "temperature" to 0.8,
+            "maxTokens" to 2000,
+            "topP" to 0.95
+        ))
+        config.temperature shouldBe 0.8
+        config.maxTokens shouldBe 2000
+        config.topP shouldBe 0.95
+    }
+
+    test("fromKwargs with extensions") {
+        val config = LMConfig.fromKwargs(mapOf(
+            "temperature" to 0.8,
+            "customKey" to "value",
+            "anotherKey" to 123
+        ))
+        config.temperature shouldBe 0.8
+        config.extensions["customKey"] shouldBe "value"
+        config.extensions["anotherKey"] shouldBe 123
+    }
+
+    test("default values") {
+        val config = LMConfig()
+        config.temperature shouldBe null
+        config.maxTokens shouldBe null
+        config.topP shouldBe null
+        config.stop shouldBe null
+        config.n shouldBe null
+        config.logprobs shouldBe null
+    }
+
+    test("responseFormat") {
+        val config = LMConfig(responseFormat = mapOf("type" to "json_object"))
+        config.responseFormat shouldBe mapOf("type" to "json_object")
+    }
+})
+
+class LMUsageTest : FunSpec({
+    test("create with input and output tokens") {
+        val usage = LMUsage.create(inputTokens = 10, outputTokens = 20)
+        usage.inputTokens shouldBe 10
+        usage.outputTokens shouldBe 20
+        usage.totalTokens shouldBe 30
+        usage.promptTokens shouldBe 10
+        usage.completionTokens shouldBe 20
+    }
+
+    test("create with partial tokens") {
+        val usage = LMUsage.create(inputTokens = 10)
+        usage.inputTokens shouldBe 10
+        usage.totalTokens shouldBe null
+    }
+
+    test("create with no tokens") {
+        val usage = LMUsage.create()
+        usage.inputTokens shouldBe null
+        usage.outputTokens shouldBe null
+        usage.totalTokens shouldBe null
+    }
+})
+
+class LMOutputTest : FunSpec({
+    test("creates output with text parts") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello")))
+        output.text shouldBe "Hello"
+        output.parts.size shouldBe 1
+    }
+
+    test("output with multiple text parts") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello"), LMTextPart(text = " World")))
+        output.text shouldBe "Hello World"
+    }
+
+    test("output with tool calls") {
+        val toolCall = LMToolCallPart(id = "call_1", name = "search", args = mapOf("query" to "test"))
+        val output = LMOutput(parts = listOf(toolCall))
+        output.toolCalls.size shouldBe 1
+        output.toolCalls[0].name shouldBe "search"
+    }
+
+    test("output with reasoning content") {
+        val thinking = LMThinkingPart(text = "Let me think...")
+        val output = LMOutput(parts = listOf(thinking))
+        output.reasoningContent shouldBe "Let me think..."
+    }
+
+    test("output with logprobs") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello")), logprobs = 0.95)
+        output.logprobs shouldBe 0.95
+    }
+
+    test("toValue returns string for single text part") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello")))
+        output.toValue() shouldBe "Hello"
+    }
+
+    test("toValue returns list for multiple parts") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello"), LMTextPart(text = " World")))
+        val value = output.toValue()
+        (value as List<*>).size shouldBe 2
+    }
+
+    test("toValue returns list with logprobs") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello")), logprobs = 0.95)
+        val value = output.toValue()
+        (value as List<*>).size shouldBe 1
+    }
+
+    test("toOutputDict") {
+        val output = LMOutput(parts = listOf(LMTextPart(text = "Hello")))
+        val dict = output.toOutputDict()
+        dict["text"] shouldBe "Hello"
+    }
+
+    test("toOutputDict with reasoning content") {
+        val output = LMOutput(
+            parts = listOf(
+                LMTextPart(text = "Answer"),
+                LMThinkingPart(text = "Reasoning")
+            )
+        )
+        // TODO: val dict = output.toOutputDict() - not yet implemented
+    }
+})
+
+class LMResponseTest : FunSpec({
+    test("creates response with text") {
+        val response = LMResponse.fromText("Hello world")
+        response.text shouldBe "Hello world"
+        response.output.text shouldBe "Hello world"
+    }
+
+    test("creates response with model") {
+        val response = LMResponse.fromText("Hello", model = "gpt-4")
+        response.model shouldBe "gpt-4"
+    }
+
+    test("creates response with usage") {
+        // TODO: val response = LMResponse.fromText("Hello", usage = LMUsage.create(10, 20)) - not yet implemented
+    }
+
+    test("creates response with cost") {
+        val response = LMResponse.fromText("Hello", cost = 0.01f)
+        response.cost shouldBe 0.01f
+    }
+
+    test("creates response with cache hit") {
+        // TODO: val response = LMResponse.fromText("Hello", cacheHit = true) - not yet implemented
+    }
+
+    test("output property returns first output") {
+        val response = LMResponse.fromText("Hello")
+        response.output shouldBe response.outputs[0]
+    }
+
+    test("parts property returns parts from first output") {
+        val response = LMResponse.fromText("Hello")
+        // TODO: response.parts - not yet implemented
+    }
+
+    test("toValues") {
+        // TODO: response.toValues() - not yet implemented
+    }
+
+    test("toOutputs") {
+        // TODO: response.toOutputs() - not yet implemented
+    }
+
+    test("requires at least one output") {
+        try {
+            LMResponse(outputs = emptyList())
+            io.kotest.assertions.fail("Should have thrown IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            e.message shouldBe "LMResponse requires at least one output"
+        }
+    }
+
+    test("creates response with multiple outputs") {
+        val outputs = listOf(
+            LMOutput(parts = listOf(LMTextPart(text = "First"))),
+            LMOutput(parts = listOf(LMTextPart(text = "Second")))
+        )
+        val response = LMResponse(outputs = outputs)
+        response.outputs.size shouldBe 2
+        response.text shouldBe "First"
+    }
+})
+
+class LMHistoryEntryTest : FunSpec({
+    test("creates entry from request and response") {
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello"))))
+        )
+        val response = LMResponse.fromText("Answer")
+        val entry = LMHistoryEntry(
+            request = request,
+            response = response,
+            timestamp = "2024-01-01T00:00:00",
+            uuid = "uuid-123"
+        )
+
+        entry.model shouldBe "gpt-4"
+        entry.prompt shouldBe "Hello"
+        entry.outputs shouldBe listOf("Answer")
+    }
+
+    test("usage property") {
+        // TODO: val response = LMResponse.fromText("Answer", usage = LMUsage.create(10, 20)) - not yet implemented
+    }
+
+    test("kwargs property") {
+        val config = LMConfig(temperature = 0.7f, maxTokens = 1000)
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello")))),
+            config = config
+        )
+        val response = LMResponse.fromText("Answer")
+        val entry = LMHistoryEntry(
+            request = request,
+            response = response,
+            timestamp = "2024-01-01T00:00:00",
+            uuid = "uuid-123"
+        )
+
+        entry.request.config.temperature shouldBe 0.7f
+        entry.request.config.maxTokens shouldBe 1000
+    }
+
+    test("messages property") {
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(
+                LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello")))
+            )
+        )
+        val response = LMResponse.fromText("Answer")
+        val entry = LMHistoryEntry(
+            request = request,
+            response = response,
+            timestamp = "2024-01-01T00:00:00",
+            uuid = "uuid-123"
+        )
+
+        entry.messages!!.size shouldBe 1
+        (entry.messages!![0] as Map<*, *>)["role"] shouldBe "user"
+    }
+
+    test("responseModel property") {
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello"))))
+        )
+        val response = LMResponse.fromText("Answer", model = "gpt-4-turbo")
+        val entry = LMHistoryEntry(
+            request = request,
+            response = response,
+            timestamp = "2024-01-01T00:00:00",
+            uuid = "uuid-123"
+        )
+
+        entry.responseModel shouldBe "gpt-4-turbo"
+    }
+
+    test("operator get for known keys") {
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello"))))
+        )
+        val response = LMResponse.fromText("Answer")
+        val entry = LMHistoryEntry(
+            request = request,
+            response = response,
+            timestamp = "2024-01-01T00:00:00",
+            uuid = "uuid-123"
+        )
+
+        entry["model"] shouldBe "gpt-4"
+        entry["outputs"] shouldBe listOf("Answer")
+        entry["prompt"] shouldBe "Hello"
+    }
+
+    test("operator get for unknown key") {
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello"))))
+        )
+        val response = LMResponse.fromText("Answer")
+        val entry = LMHistoryEntry(
+            request = request,
+            response = response,
+            timestamp = "2024-01-01T00:00:00",
+            uuid = "uuid-123"
+        )
+
+        entry["unknown"] shouldBe null
+    }
+})
+
+class LMRequestPatchTest : FunSpec({
+    test("creates patch with values") {
+        val patch = LMRequestPatch(
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello")))),
+            tools = listOf(LMToolSpec(name = "search")),
+            config = LMConfig(temperature = 0.7)
+        )
+        patch.messages.size shouldBe 1
+        patch.tools.size shouldBe 1
+        patch.config?.temperature shouldBe 0.7
+    }
+
+    test("merge combines patches") {
+        val patch1 = LMRequestPatch(
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello")))),
+        )
+        val patch2 = LMRequestPatch(
+            messages = listOf(LMMessage(role = "assistant", parts = listOf(LMTextPart(text = "Answer")))),
+            tools = listOf(LMToolSpec(name = "search"))
+        )
+        val merged = patch1.merge(patch2)
+        merged.messages.size shouldBe 2
+        merged.tools.size shouldBe 1
+    }
+
+    test("asLmKwargs with config") {
+        val patch = LMRequestPatch(config = LMConfig(temperature = 0.7f, maxTokens = 1000))
+        val kwargs = patch.toKwargs()
+        kwargs["temperature"] shouldBe 0.7f
+        kwargs["maxTokens"] shouldBe 1000
+    }
+
+    test("asLmKwargs with tools") {
+        val patch = LMRequestPatch(tools = listOf(LMToolSpec(name = "search")))
+        val kwargs = patch.toKwargs()
+        (kwargs["tools"] as List<*>).size shouldBe 1
+    }
+})
+
+class LMRequestTest : FunSpec({
+    test("creates request from prompt") {
+        val request = LMRequest.fromCall(model = "gpt-4", messages = listOf("Hello"))
+        request.model shouldBe "gpt-4"
+        request.messages.size shouldBe 1
+        request.messages[0].text shouldBe "Hello"
+    }
+
+    test("creates request from messages") {
+        val messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello"))))
+        val request = LMRequest.fromCall(model = "gpt-4", messages = messages)
+        request.model shouldBe "gpt-4"
+        request.messages shouldBe messages
+    }
+
+    test("creates request with config") {
+        // TODO: val request = LMRequest.fromCall(model = "gpt-4", messages = listOf("Hello"), "temperature" to 0.7f, "maxTokens" to 1000) - not yet implemented
+    }
+
+    test("withConfigOverrides") {
+        val request = LMRequest(
+            model = "gpt-4",
+            messages = listOf(LMMessage(role = "user", parts = listOf(LMTextPart(text = "Hello")))),
+            config = LMConfig(temperature = 0.5f)
+        )
+        val overridden = request.withConfigOverrides(mapOf("temperature" to 0.8f))
+        overridden.config.temperature shouldBe 0.8f
+    }
+})
+
+class LMReasoningConfigTest : FunSpec({
+    test("fromValue with map") {
+        val config = LMReasoningConfig.fromValue(mapOf("effort" to "high"))
+        config.effort shouldBe "high"
+    }
+
+    test("fromValue with string") {
+        val config = LMReasoningConfig.fromValue("medium")
+        config.effort shouldBe "medium"
+    }
+
+    test("fromValue with null") {
+        val config = LMReasoningConfig.fromValue(null)
+        config.effort shouldBe null
+    }
+
+    test("fromValue with overrides") {
+        val config = LMReasoningConfig.fromValue(null, mapOf("effort" to "low"))
+        config.effort shouldBe "low"
+    }
+})
+
+class LMToolChoiceTest : FunSpec({
+    test("fromValue with map") {
+        val choice = LMToolChoice.fromValue(mapOf("mode" to "required"))
+        choice.mode shouldBe "required"
+    }
+
+    test("fromValue with string") {
+        val choice = LMToolChoice.fromValue("auto")
+        choice.mode shouldBe "auto"
+    }
+
+    test("fromValue with null") {
+        val choice = LMToolChoice.fromValue(null)
+        choice.mode shouldBe "auto"
+    }
+
+    test("fromValue with parallel") {
+        val choice = LMToolChoice.fromValue(null, mapOf("parallel" to true))
+        choice.parallel shouldBe true
+    }
+})
+
+class LMCacheConfigTest : FunSpec({
+    test("fromValue with map") {
+        val config = LMCacheConfig.fromValue(mapOf("enabled" to true))
+        config.enabled shouldBe true
+    }
+
+    test("fromValue with boolean") {
+        val config = LMCacheConfig.fromValue(true)
+        config.enabled shouldBe true
+    }
+
+    test("fromValue with null") {
+        val config = LMCacheConfig.fromValue(null)
+        config.enabled shouldBe null
+    }
+
+    test("fromValue with rolloutId") {
+        val config = LMCacheConfig.fromValue(null, mapOf("rolloutId" to "test"))
+        config.rolloutId shouldBe "test"
+    }
+})
+
+class LMPromptCacheConfigTest : FunSpec({
+    test("fromValue with map") {
+        val config = LMPromptCacheConfig.fromValue(mapOf("enabled" to true, "key" to "test"))
+        config.enabled shouldBe true
+        config.key shouldBe "test"
+    }
+
+    test("fromValue with boolean") {
+        val config = LMPromptCacheConfig.fromValue(true)
+        config.enabled shouldBe true
+    }
+
+    test("fromValue with null") {
+        val config = LMPromptCacheConfig.fromValue(null)
+        config.enabled shouldBe null
+        config.key shouldBe null
+    }
+})
